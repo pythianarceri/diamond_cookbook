@@ -18,6 +18,7 @@ when 'rhel'
   package 'rpm-build'
 end
 
+
 # TODO: move source directory to an attribute
 git node['diamond']['source_path'] do
   repository node['diamond']['source_repository']
@@ -26,6 +27,7 @@ git node['diamond']['source_path'] do
   notifies :run, 'execute[build diamond]', :immediately
 end
 
+
 case node['platform_family']
 when 'debian'
   execute 'build diamond' do
@@ -33,6 +35,7 @@ when 'debian'
     action :nothing
     notifies :run, 'execute[install diamond]', :immediately
   end
+
 
   execute 'install diamond' do
     command "cd #{node['diamond']['source_path']};dpkg -i build/diamond_*_all.deb"
@@ -43,14 +46,31 @@ when 'debian'
 else
   # TODO: test this
   execute 'build diamond' do
-    command "cd #{node['diamond']['source_path']};make buildrpm"
+    command "cd #{node['diamond']['source_path']};make rpm"
     action :nothing
-    notifies :run, 'execute[install diamond]', :immediately
+    notifies :run,"ruby_block[find_rpm_file]", :immediately
+    notifies :install ,"rpm_package[diamond]", :immediately
   end
 
-  execute 'install diamond' do
-    command "cd #{node['diamond']['source_path']};rpm -ivh dist/*.noarch.rpm"
+
+ruby_block "find_rpm_file"  do
+block do
+  Chef::Resource::RubyBlock.send(:include, Chef::Mixin::ShellOut)   
+  command ='ls /usr/local/share/diamond_src/dist/*.noarch.rpm |head -1'
+  command_out = shell_out(command)
+  node.set['diamond_rpm_file'] = command_out.stdout
+
+end
+action :nothing
+end
+
+
+rpm_package 'diamond' do
+    source node['diamond_rpm_file']
     action :nothing
     notifies :restart, 'service[diamond]'
-  end
+ end
+
 end
+
+

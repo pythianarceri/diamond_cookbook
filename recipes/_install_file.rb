@@ -8,9 +8,15 @@ when 'debian'
   end
 
 when 'rhel'
-  rpm_package 'diamond' do
+
+cookbook_file "#{Chef::Config[:file_cache_path]}/diamond.noarch.rpm" do
+  source "diamond-#{node["diamond"]["version"]}-0.noarch.rpm"
+  action :create_if_missing
+end
+
+  yum_package 'diamond' do
     action :install
-    source node['diamond']['source_path']
+    source "#{Chef::Config[:file_cache_path]}/diamond.noarch.rpm"
     version node['diamond']['version']
     notifies :restart, 'service[diamond]'
   end
